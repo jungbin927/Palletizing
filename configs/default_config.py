@@ -43,11 +43,14 @@ class EnvConfig:
     # =========================
     # 동시에 열려 있을 수 있는 팔레트 최대 개수
     # 예: open pallet 2개만 허용
-    max_open_pallets: int = 2
+    max_open_pallets_per_region: int = 2
     
     # 지역별 사용할 수 있는 전체 팔레트 개수
     # 예: A 지역 2개, B 지역 2개
-    pallets_per_region: int = 2
+    pallets_per_region: int = 10
+
+    # reset 시 각 지역에서 처음 열어둘 팔레트 수
+    initial_open_pallets_per_region: int = 2
 
     # =========================
     # 4) Buffer setting
@@ -86,7 +89,9 @@ class EnvConfig:
     event_mode: str = "event"
 
     # 한 episode에서 생성할 총 박스 수
-    episode_num_boxes: int = 50
+    episode_num_boxes: int = 200
+    # 최대 에피소드 수  
+    max_steps : int = 1000
 
     # =========================
     # 8) Random seed

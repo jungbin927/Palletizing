@@ -116,8 +116,9 @@ class BoxBuffer:
             제거 성공 시 해당 Box 반환,
             못 찾으면 None 반환
         """
+        target = box_id.lower()
         for idx, box in enumerate(self.boxes):
-            if box.box_id == box_id:
+            if box.box_id.lower() == target:
                 return self.boxes.pop(idx)
         return None
 

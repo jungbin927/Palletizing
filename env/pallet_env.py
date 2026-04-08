@@ -113,6 +113,7 @@ class PalletLoadingEnv:
     def _initialize_open_and_closed_pallets(
         self, all_pallets: List[Pallet]
     ) -> tuple[List[Pallet], List[Pallet]]:
+    
         """
         reset 시점에 어떤 팔레트를 열고(open),
         어떤 팔레트를 닫아둘지(closed) 결정한다.
@@ -138,18 +139,14 @@ class PalletLoadingEnv:
         open_pallets: List[Pallet] = []
         closed_pallets: List[Pallet] = []
 
-        opened_regions = set()
+        opened_count_by_region = {region: 0 for region in self.config.region_names}
 
         for pallet in all_pallets:
-            # 아직 해당 지역 팔레트를 연 적이 없고,
-            # 전체 open 개수 제한도 넘지 않으면 open
-            if (
-                pallet.region not in opened_regions
-                and len(open_pallets) < self.config.max_open_pallets
-            ):
+            region = pallet.region
+            if opened_count_by_region[region] < self.config.initial_open_pallets_per_region:
                 pallet.is_open = True
                 open_pallets.append(pallet)
-                opened_regions.add(pallet.region)
+                opened_count_by_region[region] += 1
             else:
                 pallet.is_open = False
                 closed_pallets.append(pallet)
@@ -241,6 +238,12 @@ class PalletLoadingEnv:
 
         return self.state.incoming_boxes.pop(0)
 
+    def get_open_pallet_count(self, region: str) -> int:
+        return sum(
+            1 for pallet in self.state.open_pallets
+            if pallet.region == region and pallet.is_open
+        )
+        
     def add_to_buffer(self, box: Box) -> bool:
         """
         박스를 버퍼에 추가한다.
@@ -290,16 +293,21 @@ class PalletLoadingEnv:
         self._sync_buffer_to_state()
         return box
 
-    def can_open_new_pallet(self) -> bool:
+    def can_open_new_pallet(self, region:str) -> bool:
         """
-        현재 추가로 팔레트를 열 수 있는지 확인한다.
-
+        특정 region에 대해 추가로 팔레트를 열 수 있는지 확인한다. 
         Returns
         -------
         bool
             open pallet 수가 max_open_pallets 미만이면 True
         """
-        return len(self.state.open_pallets) < self.config.max_open_pallets
+        open_count_in_region = sum(
+            1
+            for pallet in self.state.open_pallets
+            if pallet.region == region and pallet.is_open
+        )
+
+        return open_count_in_region < self.config.max_open_pallets_per_region
 
     def open_next_pallet(self, region: str) -> Optional[Pallet]:
         """
@@ -321,7 +329,7 @@ class PalletLoadingEnv:
         - 해당 region의 닫힌 pallet가 더 없음
         """
         # 전체 open 가능 개수 제한 확인
-        if not self.can_open_new_pallet():
+        if not self.can_open_new_pallet(region):
             return None
 
         # closed pallet 중 같은 region의 것을 하나 찾아 연다
@@ -358,23 +366,24 @@ class PalletLoadingEnv:
         return False
     
     def get_open_pallet_by_id(self, pallet_id: str) -> Optional[Pallet]:  # V2
+        target = pallet_id.lower()
         for pallet in self.state.open_pallets:
-            if pallet.pallet_id == pallet_id:
-                    return pallet
+            if pallet.pallet_id.lower() == target:
+                return pallet
         return None
 
 
     def get_closed_pallet_by_id(self, pallet_id: str) -> Optional[Pallet]:  # V2
-        # 아직 열리지 않은 pallet 중 pallet_id에 해당하는 pallet를 반환함.
+        target = pallet_id.lower()
         for pallet in self.state.closed_pallets:
-            if pallet.pallet_id == pallet_id:
+            if pallet.pallet_id.lower() == target:
                 return pallet
         return None
     
     def get_buffer_box_by_id(self, box_id: str) -> Optional[Box]:  # V2
-        # buffer box 찾기 함수 
+        target = box_id.lower()
         for box in self.state.buffer_boxes:
-            if box.box_id == box_id:
+            if box.box_id.lower() == target:
                 return box
         return None
 
@@ -387,7 +396,8 @@ class PalletLoadingEnv:
         box_id : str
             처리 완료된 박스 ID
         """
-        self.state.processed_boxes.append(box_id)
+        if box_id not in self.state.processed_boxes:
+            self.state.processed_boxes.append(box_id)
 
     def increment_rehandle(self) -> None:
         """
@@ -437,14 +447,24 @@ class PalletLoadingEnv:
         {"type": "open_pallet", "region": "A"}
         {"type": "close_pallet", "pallet_id": "pallet_A_1"}
         '''
-
+        # 디버깅용
+        print("[DEBUG exec] action =", action)
+        
         action_type = action.get("type")
+        
+        # 디버깅용 
+        print("[DEBUG exec] action_type =", repr(action_type))
 
         if action_type == "assign":
             box_id = action["box_id"]
             pallet_id = action["pallet_id"]
+            
+            print("[DEBUG exec] assign box_id =", box_id, "pallet_id =", pallet_id) # 디버깅용
+
 
             pallet = self.get_open_pallet_by_id(pallet_id)
+            print("[DEBUG exec] pallet found =", pallet is not None) # 디버깅용 
+            
             if pallet is None:
                 return {"success": False, "reason": "pallet_not_found"}
 
@@ -504,7 +524,9 @@ class PalletLoadingEnv:
                 "reason": "ok",
                 "closed_pallet_id": pallet_id,
             }
-
+        elif action_type =="no_op":
+            return {"success": True, "reason": "no_op"}
+            
         else:
             return {"success": False, "reason": "unknown_action_type"}
 
@@ -513,7 +535,12 @@ class PalletLoadingEnv:
         planner action 1개를 실행하고,
         observation과 실행 결과(info)를 반환한다.
         """
+        # 디버깅용 
+        print("[DEBUG step] entered step")
+        print("[DEBUG step] action =", action)
+        
         result = self.execute_planner_action(action)
+        self.advance_time()
         self._sync_buffer_to_state()
         self.state.done = self.is_done()
         obs = self.observe()
@@ -521,7 +548,7 @@ class PalletLoadingEnv:
     
     def get_feasible_symbolic_actions(self) -> list[dict]:
         """
-        현재 상태에서 planner가 고려할 수 있는 symbolic action 후보를 생성한다. + 높이 제한 적용 
+        현재 상태에서 planner가 고려할 수 있는 symbolic action 후보를 생성한다.
         아직 heuristic feasibility까지 보장하진 않고,
         1차적인 rule-based pruning만 수행한다.
         """
@@ -529,49 +556,60 @@ class PalletLoadingEnv:
 
         actions = []
 
-        # assign 후보
+        # -------------------------
+        # 1) assign 후보
+        # -------------------------
         for box in self.state.buffer_boxes:
             for pallet in self.state.open_pallets:
-                # region mismatch는 바로 제외
+                # region mismatch는 제외
                 if box.region != pallet.region:
                     continue
 
                 # 무게 제한 1차 체크
                 if pallet.total_weight + box.weight > pallet.max_weight:
                     continue
-                
-                # 높이 제한 1차 pruning 
-                # 현재 heuristic은 width/depth만 회전하고, height는 그대로이기에
-                # box.height 기준으로 잘라도 됨.
+
+                # 높이 제한 1차 pruning
                 if pallet.used_height + box.height > pallet.max_height:
                     continue
-                
+
                 actions.append({
                     "type": "assign",
                     "box_id": box.box_id,
                     "pallet_id": pallet.pallet_id,
                 })
 
-        # open pallet 후보
-        if self.can_open_new_pallet():
-            added_regions = set()
-            for pallet in self.state.closed_pallets:
-                if pallet.region in added_regions:
-                    continue
-            
+        # -------------------------
+        # 2) open pallet 후보
+        # -------------------------
+        # 버퍼에 실제로 존재하는 region만 대상으로 open 후보를 만든다.
+        buffer_regions = set(box.region for box in self.state.buffer_boxes)
+
+        for region in buffer_regions:
+            has_closed_pallet_in_region = any(
+                pallet.region == region and not pallet.is_open
+                for pallet in self.state.closed_pallets
+            )
+
+            if self.can_open_new_pallet(region) and has_closed_pallet_in_region:
                 actions.append({
                     "type": "open_pallet",
-                    "region": pallet.region,
+                    "region": region,
                 })
-                added_regions.add(pallet.region)
 
-        # close pallet 후보
+        # -------------------------
+        # 3) close pallet 후보
+        # -------------------------
         for pallet in self.state.open_pallets:
-            actions.append({
-                "type": "close_pallet",
-                "pallet_id": pallet.pallet_id,
-            })
-
+            has_assign_candidate = any(
+                a["type"] == "assign" and a["pallet_id"] == pallet.pallet_id
+                for a in actions
+            )
+            if not has_assign_candidate and pallet.num_boxes > 0:
+                actions.append({
+                    "type": "close_pallet",
+                    "pallet_id": pallet.pallet_id,
+                })
         return actions
     
     def export_planner_state(self) -> dict:
@@ -628,4 +666,23 @@ class PalletLoadingEnv:
             "processed_boxes": list(self.state.processed_boxes),
             "rehandle_count": self.state.rehandle_count,
             "done": self.state.done,
-        }
+            }
+    
+    def get_box_by_id(self, box_id: str):
+        return self.get_buffer_box_by_id(box_id)
+
+    def get_pallet_by_id(self, pallet_id: str):
+        pallet = self.get_open_pallet_by_id(pallet_id)
+        if pallet is not None:
+            return pallet
+
+        pallet = self.get_closed_pallet_by_id(pallet_id)
+        if pallet is not None:
+            return pallet
+
+        target = pallet_id.lower()
+        for pallet in self.state.finished_pallets:
+            if pallet.pallet_id.lower() == target:
+                return pallet
+        return None
+        

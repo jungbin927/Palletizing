@@ -83,7 +83,7 @@ def build_observation(state: EnvState) -> dict:
         "finished_pallets": [pallet.pallet_id for pallet in state.finished_pallets],
 
         # 지금까지 처리 완료된 박스 수
-        "processed_boxes": len(state.processed_boxes),
+        "processed_box_count": len(state.processed_boxes),
 
         # 재배치 횟수
         "rehandle_count": state.rehandle_count,

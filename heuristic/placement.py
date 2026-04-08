@@ -255,30 +255,64 @@ def place_box_on_pallet(
         )
     )
 
+def _summarize_main_fail_reason(log: dict) -> str:
+    """
+    fail_reasons에서 가장 많이 나온 실패 원인을 대표 reason으로 반환
+    """
+    fail_reasons = log.get("fail_reasons", {})
+    if not fail_reasons:
+        return "unknown"
+
+    return max(fail_reasons.items(), key=lambda x: x[1])[0]
+
 
 def try_place_box(
     config: EnvConfig,
     pallet: Pallet,
     box: Box,
-) -> tuple[bool, Optional[Placement], dict]:
+    commit: bool = True,
+) -> dict:
     """
     주어진 box를 pallet에 적재 시도하는 편의 함수.
 
-    수행 과정
-    --------
-    1. placement 탐색
-    2. feasible하면 실제 pallet에 반영
-    3. 결과 반환
+    Parameters
+    ----------
+    commit : bool
+        True면 실제 pallet 상태에 반영
+        False면 placement만 계산하고 상태는 바꾸지 않음
 
     Returns
     -------
-    tuple[bool, Optional[Placement], dict]
-        (성공 여부, placement, 로그)
+    dict
+        {
+            "success": bool,
+            "placement": Placement | None,
+            "reason": str | None,
+            "log": dict
+        }
     """
+    print("[DEBUG try_place_box] start", box.box_id, "->", pallet.pallet_id)
+
     placement, log = find_heuristic_placement(config, pallet, box)
 
-    if placement is None:
-        return False, None, log
+    print("[DEBUG try_place_box] placement =", placement)
+    print("[DEBUG try_place_box] log =", log)
 
-    place_box_on_pallet(pallet, box, placement)
-    return True, placement, log
+    if placement is None:
+        main_reason = _summarize_main_fail_reason(log)
+        return {
+            "success": False,
+            "placement": None,
+            "reason": main_reason,
+            "log": log,
+        }
+
+    if commit:
+        place_box_on_pallet(pallet, box, placement)
+
+    return {
+        "success": True,
+        "placement": placement,
+        "reason": None,
+        "log": log,
+    }
