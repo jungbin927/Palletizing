@@ -255,6 +255,42 @@ def place_box_on_pallet(
         )
     )
 
+
+def try_place_box(
+    config: EnvConfig,
+    pallet: Pallet,
+    box: Box,
+) -> tuple[bool, Optional[Placement], dict]:
+    """
+    주어진 box를 pallet에 적재 시도하는 편의 함수.
+
+    수행 과정
+    --------
+    1. placement 탐색
+    2. feasible하면 실제 pallet에 반영
+    3. 결과 반환
+
+    Returns
+    -------
+    tuple[bool, Optional[Placement], dict]
+        (성공 여부, placement, 로그)
+    """
+    # 디버깅용 
+    print("[DEBUG try_place_box] start", box.box_id, "->", pallet.pallet_id)
+    
+    placement, log = find_heuristic_placement(config, pallet, box)
+
+    # 디버깅용
+    print("[DEBUG try_place_box] placement =", placement)
+    print("[DEBUG try_place_box] log =", log)
+       
+    if placement is None:
+        return False, None, log
+
+    place_box_on_pallet(pallet, box, placement)
+    return True, placement, log
+
+'''
 def _summarize_main_fail_reason(log: dict) -> str:
     """
     fail_reasons에서 가장 많이 나온 실패 원인을 대표 reason으로 반환
@@ -271,7 +307,7 @@ def try_place_box(
     pallet: Pallet,
     box: Box,
     commit: bool = True,
-) -> dict:
+) -> tuple[bool, Optional[Placement], dict]:
     """
     주어진 box를 pallet에 적재 시도하는 편의 함수.
 
@@ -283,13 +319,13 @@ def try_place_box(
 
     Returns
     -------
-    dict
-        {
-            "success": bool,
-            "placement": Placement | None,
-            "reason": str | None,
-            "log": dict
-        }
+    tuple[bool, Optional[Placement], dict]
+        (성공 여부, placement, log)
+
+    참고
+    ----
+    기존 코드와의 호환성을 위해 tuple 3개를 반환한다.
+    대표 실패 원인은 log["main_reason"]에 추가해둔다.
     """
     print("[DEBUG try_place_box] start", box.box_id, "->", pallet.pallet_id)
 
@@ -299,20 +335,12 @@ def try_place_box(
     print("[DEBUG try_place_box] log =", log)
 
     if placement is None:
-        main_reason = _summarize_main_fail_reason(log)
-        return {
-            "success": False,
-            "placement": None,
-            "reason": main_reason,
-            "log": log,
-        }
+        log["main_reason"] = _summarize_main_fail_reason(log)
+        return False, None, log
 
     if commit:
         place_box_on_pallet(pallet, box, placement)
 
-    return {
-        "success": True,
-        "placement": placement,
-        "reason": None,
-        "log": log,
-    }
+    log["main_reason"] = None
+    return True, placement, log
+'''
