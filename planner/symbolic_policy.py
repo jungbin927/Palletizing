@@ -129,15 +129,27 @@ class SymbolicPolicy:
 
         return True
 
-    def _fallback_action(
-        self,
-        obs: Dict[str, Any],
-    ) -> Dict[str, Any]:
+    def _fallback_action(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         feasible_actions = self.env.get_feasible_symbolic_actions()
 
-        for action in feasible_actions:
-            if action["type"] == "assign":
-                return action
+        assign_actions = [
+            a for a in feasible_actions
+            if a["type"] == "assign"
+        ]
+
+        if assign_actions:
+            def score(action):
+                pallet = self.env.get_pallet_by_id(action["pallet_id"])
+                if pallet is None:
+                    return float("inf")
+                return (
+                    getattr(pallet, "num_boxes", 0),
+                    getattr(pallet, "used_height", 0),
+                    getattr(pallet, "total_weight", 0),
+                )
+
+            assign_actions.sort(key=score)
+            return assign_actions[0]
 
         for action in feasible_actions:
             if action["type"] == "open_pallet":
