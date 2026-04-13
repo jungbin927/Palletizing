@@ -70,6 +70,9 @@ class PalletLoadingEnv:
         # 버퍼 객체
         # 실제 state.buffer_boxes와 동기화해서 사용할 것
         self.buffer = BoxBuffer(capacity=self.config.buffer_capacity)
+        
+        # 실패 기록 저장 
+        self.failed_assignments = set()
 
     def _make_all_pallets(self) -> List[Pallet]:
         """
@@ -479,6 +482,18 @@ class PalletLoadingEnv:
             )
 
             if not success:
+            
+                # 🔴 실패 기록
+                self.failed_assignments.add(
+                    (box.box_id, pallet_id)
+                )
+
+                print(
+                    "[BLACKLISTED]",
+                    box.box_id,
+                    pallet_id
+                )
+                
                 # 실패하면 다시 buffer로 되돌려야 함
                 self.add_to_buffer(box)
                 return {
@@ -572,7 +587,20 @@ class PalletLoadingEnv:
                 # 높이 제한 1차 pruning
                 if pallet.used_height + box.height > pallet.max_height:
                     continue
+                
+                # 🔴 blacklist 체크
+                if (
+                    box.box_id,
+                    pallet.pallet_id
+                ) in self.failed_assignments:
+                    continue
 
+                if pallet.total_weight + box.weight > pallet.max_weight:
+                    continue
+
+                if pallet.used_height + box.height > pallet.max_height:
+                    continue
+                
                 actions.append({
                     "type": "assign",
                     "box_id": box.box_id,
@@ -663,6 +691,15 @@ class PalletLoadingEnv:
                 }
                 for pallet in self.state.finished_pallets
             ],
+            "failed_assignments": [
+                {
+                    "box_id": b,
+                    "pallet_id": p
+                }
+                for (b, p)
+                in self.failed_assignments
+                ],
+            
             "processed_boxes": list(self.state.processed_boxes),
             "rehandle_count": self.state.rehandle_count,
             "done": self.state.done,
@@ -685,4 +722,5 @@ class PalletLoadingEnv:
             if pallet.pallet_id.lower() == target:
                 return pallet
         return None
+
         

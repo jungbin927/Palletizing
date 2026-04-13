@@ -43,7 +43,7 @@ class EnvConfig:
     # =========================
     # 동시에 열려 있을 수 있는 팔레트 최대 개수
     # 예: open pallet 2개만 허용
-    max_open_pallets_per_region: int = 2
+    max_open_pallets_per_region: int = 3
     
     # 지역별 사용할 수 있는 전체 팔레트 개수
     # 예: A 지역 2개, B 지역 2개

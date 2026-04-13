@@ -5,6 +5,10 @@ from planner.symbolic_policy import SymbolicPolicy
 from planner.external_planner import ExternalPlanner 
 from planner.plan_parser import PlanParser 
 from planner.pddl_generator import build_problem_pddl 
+from visualization.pallet_3d_visualizer import (
+    print_env_pallet_summaries,
+    save_final_pallet_visualizations,
+)
 
 class SimplePDDLGenerator: 
     def __init__(self, env): 
@@ -33,7 +37,7 @@ def main():
         plan_parser=plan_parser, 
     ) 
     step_count = 0 
-    max_test_steps = 50 
+    max_test_steps = 200 
     
     while not env.state.done and step_count < max_test_steps: 
         print(f"\n========== STEP {step_count} ==========") 
@@ -82,5 +86,16 @@ def main():
                   "weight=", pallet.total_weight, 
                   "height=", pallet.used_height, 
                 ) 
-            
+        
+        # --------------------------
+        # 여기부터 시각화
+        # --------------------------
+    print_env_pallet_summaries(env)
+
+    save_final_pallet_visualizations(
+        env=env,
+        step_count=step_count,
+        base_dir="experiments",
+    )
+    
 if __name__ == "__main__": main()

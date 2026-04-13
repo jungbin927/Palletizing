@@ -61,7 +61,12 @@ class SymbolicPolicy:
             return self._fallback_action(obs)
 
         # 10) 첫 action 반환
-        return parsed_plan[0]
+        selected = parsed_plan[0]
+
+        if selected not in candidate_actions:
+            return self._fallback_action(obs)
+
+        return selected
 
     def _filter_blacklist(
         self,
