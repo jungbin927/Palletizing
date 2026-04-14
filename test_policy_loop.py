@@ -9,6 +9,13 @@ from visualization.pallet_3d_visualizer import (
     print_env_pallet_summaries,
     save_final_pallet_visualizations,
 )
+from metrics.metrics import (
+    BoxSpec,
+    PalletSpec,
+    EpisodeMetricsInput,
+    compute_episode_metrics,
+)
+from llm.llm_pruner import LLMActionPruner  # 추가
 
 class SimplePDDLGenerator: 
     def __init__(self, env): 
@@ -16,7 +23,7 @@ class SimplePDDLGenerator:
         
     def generate(self, obs, candidate_actions): 
         return build_problem_pddl(self.env.export_planner_state()) 
-    
+
 def main(): 
     config = EnvConfig() 
     env = PalletLoadingEnv(config) 
@@ -30,12 +37,23 @@ def main():
     ) 
     plan_parser = PlanParser() 
     
-    policy = SymbolicPolicy( 
-        env=env, 
+    # ----------------------------
+    # LLM pruner 생성
+    # ----------------------------
+    llm_pruner = LLMActionPruner(
+        model="gpt-4.1-mini",
+        top_k=5,
+        temperature=0.0,
+    )
+
+    policy = SymbolicPolicy(
+        env=env,
         pddl_generator=pddl_generator,
-        external_planner=external_planner, 
-        plan_parser=plan_parser, 
-    ) 
+        external_planner=external_planner,
+        plan_parser=plan_parser,
+        llm_pruner=llm_pruner,
+        use_llm_pruning=True,   # 여기 켜기
+    )
     step_count = 0 
     max_test_steps = 200 
     
@@ -73,19 +91,19 @@ def main():
             
         step_count += 1 
             
-        print("\n========== FINAL ==========") 
-        print("processed_boxes:", env.state.processed_boxes)
-        print("done:", env.state.done) 
+    print("\n========== FINAL ==========") 
+    print("processed_boxes:", env.state.processed_boxes)
+    print("done:", env.state.done) 
         
-        print("\n[FINAL PALLETS]") 
-        for pallet in env.state.open_pallets + env.state.finished_pallets: 
-            print( 
-                  pallet.pallet_id, 
-                  "region=", pallet.region, 
-                  "boxes=", pallet.num_boxes, 
-                  "weight=", pallet.total_weight, 
-                  "height=", pallet.used_height, 
-                ) 
+    print("\n[FINAL PALLETS]") 
+    for pallet in env.state.open_pallets + env.state.finished_pallets: 
+        print( 
+                pallet.pallet_id, 
+                "region=", pallet.region, 
+                "boxes=", pallet.num_boxes, 
+                "weight=", pallet.total_weight, 
+                "height=", pallet.used_height, 
+            ) 
         
         # --------------------------
         # 여기부터 시각화

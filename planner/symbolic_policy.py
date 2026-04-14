@@ -8,11 +8,15 @@ class SymbolicPolicy:
         pddl_generator,
         external_planner,
         plan_parser,
+        llm_pruner=None,
+        use_llm_pruning: bool = True,
     ):
         self.env = env
         self.pddl_generator = pddl_generator
         self.external_planner = external_planner
         self.plan_parser = plan_parser
+        self.llm_pruner = llm_pruner
+        self.use_llm_pruning = use_llm_pruning
 
     def select_action(
         self,
@@ -29,41 +33,50 @@ class SymbolicPolicy:
             feasible_actions, blacklist
         )
 
-        # 3) 추가 pruning
+        # 3) 기본 rule-based pruning
         candidate_actions = self._prune_actions(
             obs, filtered_actions
         )
 
-        # 4) 후보가 없으면 fallback
+        # 4) LLM pruning
+        if self.use_llm_pruning and self.llm_pruner is not None and candidate_actions:
+            candidate_actions = self.llm_pruner.prune_actions(
+                obs=obs,
+                candidate_actions=candidate_actions,
+                failed_assignments=blacklist.get("failed_assignments", []),
+            )
+
+        # 5) 후보가 없으면 fallback
         if not candidate_actions:
             return self._fallback_action(obs)
 
-        # 5) PDDL problem 생성
+        # 6) PDDL problem 생성
         problem_text = self.pddl_generator.generate(
             obs=obs,
             candidate_actions=candidate_actions,
         )
 
-        # 6) planner 호출
+        # 7) planner 호출
         planner_result = self.external_planner.run(problem_text)
 
-        # 7) planner 실패 시 fallback
+        # 8) planner 실패 시 fallback
         if not planner_result["success"]:
             return self._fallback_action(obs)
 
-        # 8) plan parsing
+        # 9) plan parsing
         parsed_plan = self.plan_parser.parse(
             planner_result["plan_text"]
         )
 
-        # 9) 파싱 결과 없으면 fallback
+        # 10) 파싱 결과 없으면 fallback
         if not parsed_plan:
             return self._fallback_action(obs)
 
-        # 10) 첫 action 반환
+        # 11) 첫 action 반환
         selected = parsed_plan[0]
 
         if selected not in candidate_actions:
+            print("[POLICY] planner action not in candidate_actions -> fallback")
             return self._fallback_action(obs)
 
         return selected
@@ -111,20 +124,17 @@ class SymbolicPolicy:
 
         box = self.env.get_box_by_id(box_id)
         pallet = self.env.get_pallet_by_id(pallet_id)
-        
-        if box is None or pallet is None:
-            return False 
 
-        # 1) 닫힌 pallet 제외
+        if box is None or pallet is None:
+            return False
+
         if hasattr(pallet, "is_open") and not pallet.is_open:
             return False
 
-        # 2) region mismatch 제외
         if hasattr(box, "region") and hasattr(pallet, "region"):
             if box.region != pallet.region:
                 return False
 
-        # 3) 명백한 max weight 초과 제외
         current_weight = getattr(pallet, "total_weight", 0.0)
         max_weight = getattr(pallet, "max_weight", float("inf"))
         box_weight = getattr(box, "weight", 0.0)
