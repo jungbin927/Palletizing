@@ -26,7 +26,7 @@ class EnvConfig:
     # 팔레트의 최대 적재 높이 (z축 한계)
     pallet_max_height: int = 200
     # 팔레트가 버틸 수 있는 최대 총 중량
-    pallet_max_weight: float = 1000.0
+    pallet_max_weight: int = 1000
 
     # =========================
     # 2) Region / destination setting

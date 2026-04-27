@@ -33,15 +33,12 @@ class Pallet:
 
     # 팔레트 가로 길이
     width: int
-
     # 팔레트 세로 길이
     depth: int
-
     # 최대 허용 높이
     max_height: int
-
     # 최대 허용 중량
-    max_weight: float
+    max_weight: int
 
     # 현재 열려 있는 팔레트인지 여부
     # open 상태여야 새로운 박스를 배치할 수 있다고 볼 수 있음
@@ -51,7 +48,7 @@ class Pallet:
     packed_boxes: List[PackedBox] = field(default_factory=list)
 
     @property
-    def total_weight(self) -> float:
+    def total_weight(self) -> int:
         """
         현재 팔레트에 적재된 전체 박스 무게 합을 반환한다.
         """

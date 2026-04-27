@@ -45,6 +45,10 @@ class SymbolicPolicy:
                 candidate_actions=candidate_actions,
                 failed_assignments=blacklist.get("failed_assignments", []),
             )
+            
+        print(f"[POLICY] after_llm_pruning={len(candidate_actions)}")
+        for i, a in enumerate(candidate_actions):
+            print(f"[CANDIDATE {i}] {a}")
 
         # 5) 후보가 없으면 fallback
         if not candidate_actions:
@@ -67,13 +71,16 @@ class SymbolicPolicy:
         parsed_plan = self.plan_parser.parse(
             planner_result["plan_text"]
         )
-
+        print("[PLANNER RESULT]", planner_result)
+        print("[PARSED PLAN]", parsed_plan)
+        
         # 10) 파싱 결과 없으면 fallback
         if not parsed_plan:
             return self._fallback_action(obs)
 
         # 11) 첫 action 반환
         selected = parsed_plan[0]
+        print("[SELECTED ACTION FROM PLAN]", selected)
 
         if selected not in candidate_actions:
             print("[POLICY] planner action not in candidate_actions -> fallback")

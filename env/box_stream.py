@@ -73,7 +73,7 @@ def generate_box_stream(config: EnvConfig) -> List[Box]:
 
         # 박스 무게 샘플링
         # 소수점 둘째 자리까지 반올림
-        weight = round(rng.uniform(2.0, 20.0), 2)
+        weight = rng.randint(5, 20)
 
         # Box 객체 생성
         box = Box(

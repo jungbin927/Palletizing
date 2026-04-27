@@ -613,17 +613,19 @@ class PalletLoadingEnv:
         # 버퍼에 실제로 존재하는 region만 대상으로 open 후보를 만든다.
         buffer_regions = set(box.region for box in self.state.buffer_boxes)
 
-        for region in buffer_regions:
-            has_closed_pallet_in_region = any(
-                pallet.region == region and not pallet.is_open
-                for pallet in self.state.closed_pallets
-            )
+        for pallet in self.state.closed_pallets:
+            if pallet.region not in buffer_regions:
+                continue
 
-            if self.can_open_new_pallet(region) and has_closed_pallet_in_region:
-                actions.append({
-                    "type": "open_pallet",
-                    "region": region,
-                })
+            # region 차원에서 새 pallet open 가능 여부 체크
+            if not self.can_open_new_pallet(pallet.region):
+                continue
+
+            actions.append({
+                "type": "open_pallet",
+                "pallet_id": pallet.pallet_id,
+                "region": pallet.region,
+            })
 
         # -------------------------
         # 3) close pallet 후보

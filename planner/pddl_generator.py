@@ -49,6 +49,10 @@ def build_domain_pddl() -> str:
 
     (assigned ?b - box ?p - pallet)
     (processed ?b - box)
+    
+    (allowed-assign ?b - box ?p - pallet)
+    (allowed-open ?p - pallet)
+    (allowed-close ?p - pallet)
   )
 
   (:action open-new-pallet
@@ -56,6 +60,7 @@ def build_domain_pddl() -> str:
     :precondition (and
       (closed ?p)
       (pallet-region ?p ?r)
+      (allowed-open ?p)
     )
     :effect (and
       (open ?p)
@@ -71,6 +76,7 @@ def build_domain_pddl() -> str:
       (pallet-region ?p ?r)
       (open ?p)
       (not (processed ?b))
+      (allowed-assign ?b ?p)
     )
     :effect (and
       (assigned ?b ?p)
@@ -80,7 +86,10 @@ def build_domain_pddl() -> str:
 
   (:action close-pallet
     :parameters (?p - pallet)
-    :precondition (open ?p)
+    :precondition (and
+    (open ?p)
+    (allowed-close ?p)
+    )
     :effect (and
       (closed ?p)
       (not (open ?p))
@@ -92,7 +101,11 @@ def build_domain_pddl() -> str:
     return domain
 
 
-def build_problem_pddl(planner_state: dict[str, Any], problem_name: str = "pallet_problem") -> str:
+def build_problem_pddl(
+      planner_state: dict[str, Any],
+      allowed_actions: list[dict[str, Any]] | None = None,
+      problem_name: str = "pallet_problem",
+    ) -> str:
     """
     export_planner_state() 결과를 받아 problem.pddl 문자열 생성.
 
@@ -107,6 +120,9 @@ def build_problem_pddl(planner_state: dict[str, Any], problem_name: str = "palle
         "done": False,
     }
     """
+    
+    allowed_actions = allowed_actions or []
+    
     buffer_boxes = planner_state.get("buffer_boxes", [])
     open_pallets = planner_state.get("open_pallets", [])
     available_pallets = planner_state.get("available_pallets", [])
@@ -140,6 +156,22 @@ def build_problem_pddl(planner_state: dict[str, Any], problem_name: str = "palle
     # init 생성
     init_facts: list[str] = []
 
+    for action in allowed_actions:
+      a_type = action["type"]
+
+      if a_type == "assign":
+        b = _sanitize(action["box_id"])
+        p = _sanitize(action["pallet_id"])
+        init_facts.append(f"(allowed-assign {b} {p})")
+
+      elif a_type == "open_pallet":
+        p = _sanitize(action["pallet_id"])
+        init_facts.append(f"(allowed-open {p})")
+
+      elif a_type == "close_pallet":
+        p = _sanitize(action["pallet_id"])
+        init_facts.append(f"(allowed-close {p})")
+        
     # buffer 안에 있는 box는 arrived
     for box in buffer_boxes:
         b = _sanitize(box["box_id"])

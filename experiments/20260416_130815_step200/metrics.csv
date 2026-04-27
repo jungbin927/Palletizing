@@ -1,0 +1,2 @@
+﻿throughput,unprocessed_rate,load_factor,pallets_used,rehandle_rate,placement_success_rate,stability_failure_rate,avg_decision_time,avg_support_ratio,step_count,num_arrived,num_processed,use_llm_pruning,experiment_name
+0.0,0.0,0.0,6.0,0.0,1.0,0.0,1.6323456629998692,0.0,200.0,0.0,160.0,1.0,llm_top1

@@ -40,16 +40,13 @@ class Box:
 
     # 박스의 가로 길이 (x 방향)
     width: int
-
     # 박스의 세로 길이 (y 방향)
     depth: int
-
     # 박스의 높이 (z 방향)
     height: int
-
     # 박스 무게
-    weight: float
-
+    weight: int
+    
     # 목적지 지역
     # 예: "A", "B"
     region: str
@@ -78,20 +75,16 @@ class Placement:
 
     # 팔레트 내 x 좌표
     x: int
-
     # 팔레트 내 y 좌표
     y: int
-
     # 팔레트 내 z 좌표
     z: int
 
     # 배치된 상태에서의 가로 길이
     # 회전을 고려하면 원래 Box.width와 달라질 수도 있음
     w: int
-
     # 배치된 상태에서의 세로 길이
     d: int
-
     # 배치된 상태에서의 높이
     h: int
 
