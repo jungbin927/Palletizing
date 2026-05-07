@@ -662,6 +662,7 @@ class PalletLoadingEnv:
                     "arrival_time": box.arrival_time,
                     "fragile": getattr(box, "fragile", False),
                     "category": getattr(box, "category", None),
+                    "boxname": box.product_name,
                 }
                 for box in self.state.buffer_boxes
             ],

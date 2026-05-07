@@ -180,7 +180,7 @@ def main():
         if box is not None:
             num_arrived += 1
             added = env.add_to_buffer(box)
-            print("[ARRIVAL]", box.box_id, box.region, "buffer_added=", added)
+            print("[ARRIVAL]", box.box_id, box.region, box.product_name, "buffer_added=", added)
 
         # 2) 현재 observation
         obs = env.observe()

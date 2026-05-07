@@ -59,6 +59,7 @@ def build_observation(state: EnvState) -> dict:
             "arrival_time": box.arrival_time,
             "fragile": getattr(box, "fragile", False),
             "category": getattr(box, "category", None),
+            "boxname": box.product_name,
         }
         for box in state.buffer_boxes
     ],

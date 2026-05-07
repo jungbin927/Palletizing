@@ -62,6 +62,9 @@ class Box:
     # 예: "detergent", "drink", "electronics"
     # 현재는 optional로 두고 이후 LLM semantic module과 연동 가능
     category: Optional[str] = None
+    
+    # 상품명
+    product_name: Optional[str] = None
 
 
 @dataclass
